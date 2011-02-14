@@ -196,7 +196,7 @@ module Synthesis
           result = res.body
         else
           log("Error compiling js with Google's Closure Compiler. Falling back on js_min...")
-          result = compress_js_jsmin(source)
+          result = compress_js_min(source)
         end
         result
       end
