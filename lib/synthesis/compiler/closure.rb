@@ -1,15 +1,13 @@
 module Synthesis
   module Compiler
     class Closure
-      
-      AssetPackage.add_compiler(:closure)
   
       class << self
         
         def description
           "Google's Closure Compiler"
         end
-    
+                    
         def compress(source)
       
           require 'net/http'
@@ -26,15 +24,20 @@ module Synthesis
           })
 
           res = Net::HTTP.new(url.host, url.port).start {|http| http.request(req) }
-
-          raise CompileError("Error compiling Javascript with Google's Closure Compiler.") unless [Net::HTTPSuccess, Net::HTTPRedirection].include?(res)
-
-          res.body
+          
+          case res
+          when Net::HTTPSuccess, Net::HTTPRedirection
+            return res.body
+          else
+            raise CompileError.new("HTTP request didn't return 200 when compiling Javascript with Google's Closure Compiler.")
+          end
                 
         end
     
       end
-  
+      
     end
   end
 end
+
+Synthesis::AssetPackage.add_compiler(Synthesis::Compiler::Closure)

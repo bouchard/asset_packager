@@ -1,8 +1,9 @@
-require 'rails'
 require 'synthesis'
+require 'rails'
 
 module Synthesis
-  class Railtie < ::Rails::Railtie
+  class Railtie < Rails::Railtie
+    
     config.after_initialize do
       ActiveSupport.on_load :action_view do
         ActionView::Base.send :include, Synthesis::AssetPackageHelper

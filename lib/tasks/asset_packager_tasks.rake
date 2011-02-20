@@ -1,5 +1,4 @@
 require File.join(File.dirname(__FILE__), '..', 'synthesis', 'asset_package')
-require File.join(File.dirname(__FILE__), '..', 'synthesis', 'jsmin')
 
 namespace :asset do
   namespace :packager do
