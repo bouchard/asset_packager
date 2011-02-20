@@ -1,7 +1,7 @@
 module Synthesis
   module Version
     MAJOR = 0
-    MINOR = 3
+    MINOR = 4
     RELEASE = 0
 
     def self.dup

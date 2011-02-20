@@ -1,16 +1,30 @@
 require 'yaml'
 
 module Synthesis
+  
+  module Compiler
+    class CompileError < StandardError; end
+  end
+    
   class AssetPackage
     @asset_base_path    = "#{Rails.root}/public"
     @asset_packages_yml = File.exists?("#{Rails.root}/config/asset_packages.yml") ? YAML.load_file("#{Rails.root}/config/asset_packages.yml") : nil
 
-    # singleton methods
     class << self
       attr_accessor :asset_base_path,
                     :asset_packages_yml
 
-      attr_writer   :merge_environments
+      attr_writer   :merge_environments,
+                    :compilers
+      
+      def add_compiler(c)
+        @compilers ||= []
+        @compilers << c.to_s.camelize.constantize rescue NameError
+      end
+      
+      def compilers
+        @compilers ||= []
+      end
 
       def merge_environments
         @merge_environments ||= ['production']
@@ -165,40 +179,16 @@ module Synthesis
         end
       end
 
-      def compress_js(source, minifier = 'google_closure')
-        case minifier
-          when 'google_closure' then result = compress_google_closure(source)
-        else result = compress_js_min(source)
+      def compress_js(source)
+        raise CompileError("No compilers available.") unless compilers.length > 0
+        compilers.each do |c|
+          begin
+            log("Compressing with #{c.description}...")
+            return c.constantize.compress(source)
+          rescue CompileError
+          end
         end
-        result
-      end
-
-      def compress_js_min(source)
-        Synthesis::JSMin.compress(source)
-      end
-
-      def compress_google_closure(source)
-        require 'net/http'
-        require 'uri'
-
-        url = URI.parse('http://closure-compiler.appspot.com/compile')
-        req = Net::HTTP::Post.new(url.path)
-        req.set_form_data(
-        {
-          'js_code'=> source,
-          'compilation_level' => 'SIMPLE_OPTIMIZATIONS',
-          'output_format' => 'text',
-          'output_info' => 'compiled_code'
-        })
-        res = Net::HTTP.new(url.host, url.port).start {|http| http.request(req) }
-        case res
-        when Net::HTTPSuccess, Net::HTTPRedirection
-          result = res.body
-        else
-          log("Error compiling js with Google's Closure Compiler. Falling back on js_min...")
-          result = compress_js_min(source)
-        end
-        result
+        raise CompileError("All available compilers failed.")
       end
 
       def compress_css(source)
@@ -211,17 +201,13 @@ module Synthesis
         
         # add timestamps to images in css
         source.gsub!(/url\(['"]?([^'"\)]+?(?:gif|png|jpe?g))['"]?\)/i) do |match|
-        
           file = $1
           path = File.join(Rails.root, 'public')
-          
           if file.starts_with?('/')
             path = File.join(path, file) 
           else
             path = File.join(path, 'stylesheets', file)
           end
-          
-          
           match.gsub(file, "#{file}?#{File.new(path).mtime.to_i}")
         end
         
@@ -246,7 +232,7 @@ module Synthesis
       def self.build_file_list(path, extension)
         re = Regexp.new(".#{extension}\\z")
         file_list = Dir.new(path).entries.delete_if { |x| ! (x =~ re) }.map {|x| x.chomp(".#{extension}")}
-        # reverse javascript entries so prototype comes first on a base rails app
+        # reverse javascript entries so prototype comes first on a base Rails app.
         file_list.reverse! if extension == "js"
         file_list
       end
